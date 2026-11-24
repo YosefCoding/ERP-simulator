@@ -107,6 +107,4 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          - name: Run Unit Tests
-        run: |
           pytest tests/test_mrp.py -v
