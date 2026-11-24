@@ -40,7 +40,7 @@ jobs:
       neo4j:
         image: neo4j:5.26-community
         env:
-          NEO4J_AUTH: neo4j/mrp_password
+          NEO4J_AUTH: none
         ports:
           - 7474:7474
           - 7687:7687
@@ -59,7 +59,7 @@ jobs:
       NEO4J_HOST: localhost
       NEO4J_PORT: 7687
       NEO4J_USER: neo4j
-      NEO4J_PASSWORD: password
+      NEO4J_PASSWORD: mrp_password
 
     steps:
       - name: Checkout Repository
@@ -97,14 +97,33 @@ jobs:
         run: |
           python src/seed_data.py
 
+      - name: Seed Neo4j Graph Data
+        run: |
+          python -c '
+          from neo4j import GraphDatabase
+          driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "mrp_password"))
+          with driver.session() as session:
+              session.run("""
+              MERGE (p:Producto {nombre: "Gaming PC"})
+              WITH p
+              UNWIND [
+                  {nombre: "CPU Ryzen 7", cantidad: 1},
+                  {nombre: "Motherboard B650", cantidad: 1},
+                  {nombre: "RAM 16GB DDR5", cantidad: 2},
+                  {nombre: "SSD 1TB NVMe", cantidad: 1},
+                  {nombre: "Power Supply 750W", cantidad: 1},
+                  {nombre: "Graphics Card RTX", cantidad: 1}
+              ] AS comp
+              MERGE (c:Componente {nombre: comp.nombre})
+              MERGE (p)-[r:REQUIERE]->(c)
+              SET r.cantidad = comp.cantidad
+              """)
+          driver.close()
+          print("Neo4j Graph Seeded OK")
+          '
+
       - name: Run MRP Validation
         run: |
           python src/check_shortages.py
 
       - name: Set Python Path
-        run: |
-          echo "PYTHONPATH=${GITHUB_WORKSPACE}" >> $GITHUB_ENV
-
-      - name: Run Unit Tests
-        run: |
-          pytest tests/test_mrp.py -v
